@@ -191,6 +191,8 @@ void drawMessage(char *str, int offset, const GFXfont *font, int color,
     // We add an extra 1/2 because of the
     // text that falls right on the center
     y -= fontHeight / 2;
+  } else {
+    y -= linePadding / 2;
   }
 
   int lineIndex = 0;
