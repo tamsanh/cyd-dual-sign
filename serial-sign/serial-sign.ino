@@ -97,11 +97,11 @@ void drawBgGradient(int bgColor, int fgColor) {
   }
 }
 
-int drawBgSolidMillis = 0;
+int drawBgSolidDrawn = false;
 void drawBgSolid(int bgColor, int fgColor) {
-  if (millis() - drawBgSolidMillis > 60000) {
+  if (!drawBgSolidDrawn) {
     tft.fillRect(0, 0, DISP_WIDTH, DISP_HEIGHT, bgColor);
-    drawBgSolidMillis = millis();
+    drawBgSolidDrawn = true;
   }
 }
 
@@ -391,6 +391,6 @@ void loop() {
   }
 
   if (serialDataState == SERIAL_DATA_STATE_FINISHED) {
-    drawBgSolidMillis = 0;
+    drawBgSolidDrawn = false;
   }
 }
