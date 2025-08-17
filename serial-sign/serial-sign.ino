@@ -16,6 +16,12 @@ TFT_eSPI tft = TFT_eSPI();
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
 
+#ifndef IS_LEFT
+int currentRotation = 1;
+#else
+int currentRotation = 3;
+#endif
+
 char serialData[MESSAGE_MAX_LEN] = "00006RNo\nData";
 char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
@@ -216,12 +222,6 @@ void drawMessageBasic(const GFXfont *font, int size) {
   tft.drawString(serialData, 0, 0);
   tft.drawString(String(strlen(serialData)), 0, 90);
 }
-
-#ifndef IS_LEFT
-int currentRotation = 1;
-#else
-int currentRotation = 3;
-#endif
 
 // 400 <= p.y < 3700
 // 400 <= p.x < 3700
