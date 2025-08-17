@@ -48,12 +48,12 @@ void setup() {
 
   mySpi.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
   ts.begin(mySpi);
-  ts.setRotation(1);
+  ts.setRotation(currentRotation);
 
   // Start the tft display and set it to black
   tft.init();
   tft.invertDisplay(1);
-  tft.setRotation(1);
+  tft.setRotation(currentRotation);
 
   clearScreen();
 }
