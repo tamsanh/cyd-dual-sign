@@ -217,7 +217,11 @@ void drawMessageBasic(const GFXfont *font, int size) {
   tft.drawString(String(strlen(serialData)), 0, 90);
 }
 
+#ifndef IS_LEFT
 int currentRotation = 1;
+#else
+int currentRotation = 3;
+#endif
 
 // 400 <= p.y < 3700
 // 400 <= p.x < 3700
