@@ -12,11 +12,11 @@ SPIClass mySpi = SPIClass(VSPI);
 XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
 TFT_eSPI tft = TFT_eSPI();
 
-// FONT_SIZE, FONT_COLOR, FONT_ALIGNMENT, BG_RENDERER, BG_BG_COLOR, BG_FG_COLOR
+// BG_RENDERER, BG_BG_COLOR, BG_FG_COLOR, FONT_ALIGNMENT, FONT_SIZE, FONT_COLOR
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
 
-char serialData[MESSAGE_MAX_LEN] = "0005RCNo\nData";
+char serialData[MESSAGE_MAX_LEN] = "000C5RNo\nData";
 char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
 typedef struct {
@@ -254,10 +254,14 @@ bool serialPrevByteWasSentinel = false;
 
 #define SERIAL_DATA_STATE_AWAITING 0
 #define SERIAL_DATA_STATE_INPUTTING 1
+#define SERIAL_DATA_STATE_FINISHED 2
 
 int serialDataState = SERIAL_DATA_STATE_AWAITING;
 
 void manageSerialData() {
+  if (serialDataState == SERIAL_DATA_STATE_FINISHED) {
+    serialDataState = SERIAL_DATA_STATE_AWAITING;
+  }
   if (Serial.available()) {
     int byte = Serial.read();
     Serial.print(char(byte));
@@ -288,7 +292,7 @@ void manageSerialData() {
       strcpy(serialData, newSerialData);
       newSerialData[0] = '\0';
       clearScreen();
-      serialDataState = SERIAL_DATA_STATE_AWAITING;
+      serialDataState = SERIAL_DATA_STATE_FINISHED;
     }
   }
 }
@@ -356,29 +360,15 @@ StyleConfig parseStyle(char *configData) {
       parseInt(configData[0]),
   };
 
-  MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[3])];
-  int fontColor = parseColor(configData[4]);
-  int fontAlignment = parseAlignment(configData[5]);
+  MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[4])];
+  int fontColor = parseColor(configData[5]);
+  int fontAlignment = parseAlignment(configData[3]);
   return {fontConfig, fontColor, fontAlignment, bgConfig};
 }
 
 void loop() {
   manageTouchRotation();
   manageSerialData();
-
-  if (serialDataState == SERIAL_DATA_STATE_INPUTTING) {
-    MessageSizeConfig fontConf = fontConfigs[2];
-    drawBgSolid(TFT_BLACK, TFT_BLACK);
-    drawMessage(newSerialData, 0, fontConf.font, TFT_DARKGREY, fontConf.size,
-                fontConf.height, TL_DATUM);
-    drawBgSolidMillis = 0;
-    return;
-  }
-
-  if (strlen(serialData) < CONFIG_OPTION_COUNT) {
-    delay(50);
-    return;
-  }
 
   StyleConfig conf = parseStyle(serialData);
   switch (conf.bgConfig.bgDrawer) {
@@ -392,4 +382,15 @@ void loop() {
 
   drawMessage(serialData, conf.fontConfig.font, conf.fontColor,
               conf.fontConfig.size, conf.fontConfig.height, conf.fontAlignment);
+
+  if (serialDataState == SERIAL_DATA_STATE_INPUTTING) {
+    MessageSizeConfig fontConf = fontConfigs[2];
+    drawBgSolid(TFT_BLACK, TFT_BLACK);
+    drawMessage(newSerialData, 0, fontConf.font, TFT_DARKGREY, fontConf.size,
+                fontConf.height, TL_DATUM);
+  }
+
+  if (serialDataState == SERIAL_DATA_STATE_FINISHED) {
+    drawBgSolidMillis = 0;
+  }
 }
