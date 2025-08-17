@@ -226,7 +226,7 @@ int currentRotation = 3;
 // 400 <= p.y < 3700
 // 400 <= p.x < 3700
 
-#define FINGERNAIL_TOUCH_PRESSURE 1800
+#define FINGERNAIL_TOUCH_PRESSURE 500
 
 bool wasTouched = false;
 int touchTimeoutMillis = 0;
