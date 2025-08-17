@@ -10,5 +10,8 @@ upload: ## Upload to the system
 	platformio run -t upload -e cyd &
 	platformio run -t upload -e left &
 
-monitor:
+monitor-r:
 	screen -m -port /dev/cu.usbserial-2110 115200
+
+monitor-l:
+	screen -m -port /dev/cu.usbserial-21430 115200
