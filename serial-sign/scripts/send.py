@@ -8,6 +8,8 @@ L_PORT = "/dev/cu.usbserial-21430"
 R_PORT = "/dev/cu.usbserial-2110"
 BAUD = 115200
 
+NUM_FONT_CONFIGS = 8
+
 
 class HelpDefaultParser(argparse.ArgumentParser):
     def error(self, message):
@@ -107,7 +109,7 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         "-fs",
         type=int,
-        choices=list(range(7)),
+        choices=list(range(NUM_FONT_CONFIGS)),
         help="Font size",
         default=3,
     )

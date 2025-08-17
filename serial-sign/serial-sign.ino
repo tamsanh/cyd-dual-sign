@@ -155,7 +155,7 @@ void drawStringMaybeCenter(char *str, int y, int alignment) {
   }
 
   tft.setTextDatum(alignment);
-  if (alignment == TC_DATUM) {
+  if (alignment == TC_DATUM || alignment == MC_DATUM) {
     tft.drawString(str, CENTER_X, y);
   } else {
     tft.drawString(str, 0, y);
@@ -193,6 +193,11 @@ void drawMessage(char *str, int offset, const GFXfont *font, int color,
     y -= fontHeight / 2;
   } else {
     y -= linePadding / 2;
+  }
+
+  if (lineCount == 1) {
+    y = CENTER_Y;
+    alignment = MC_DATUM;
   }
 
   int lineIndex = 0;
@@ -330,19 +335,21 @@ int parseColor(char c) {
   }
 }
 
-MessageSizeConfig fontConfigs[7] = {
+#define NUM_FONT_CONFIGS 8
+
+MessageSizeConfig fontConfigs[NUM_FONT_CONFIGS] = {
     {&FreeMonoBold12pt7b, 1, 15, 23}, {&FreeMonoBold18pt7b, 1, 23, 15},
     {&FreeMonoBold24pt7b, 1, 30, 11}, {&FreeMonoBold18pt7b, 2, 46, 8},
     {&FreeMonoBold24pt7b, 2, 58, 6},  {&FreeMonoBold18pt7b, 3, 69, 5},
-    {&FreeMonoBold24pt7b, 3, 81, 4},
+    {&FreeMonoBold24pt7b, 3, 81, 4},  {&FreeMonoBold24pt7b, 7, 104, 4},
 };
 
 int parseInt(char c) {
   int out = c - '0';
-  if (out >= 6) {
-    return 6;
+  if (out < NUM_FONT_CONFIGS) {
+    return out;
   }
-  return out;
+  return NUM_FONT_CONFIGS - 1;
 }
 
 int parseAlignment(char c) {
