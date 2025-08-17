@@ -343,13 +343,13 @@ int parseAlignment(char c) {
   }
 }
 
-DrawBg selectBgDrawer(char c) {
+int parseBgDrawer(char c) {
   switch (c) {
-  case '0':
-    return drawBgSolid;
   case 'S':
   case 's':
-    return drawBgSquareSix;
+    return DRAW_BG_SQUARE_SIX;
+  default:
+    return DRAW_BG_SOLID;
   }
 }
 
@@ -357,7 +357,7 @@ StyleConfig parseStyle(char *configData) {
   BackgroundConfig bgConfig = {
       parseColor(configData[1]),
       parseColor(configData[2]),
-      parseInt(configData[0]),
+      parseBgDrawer(configData[0]),
   };
 
   MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[4])];
