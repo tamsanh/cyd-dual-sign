@@ -384,7 +384,7 @@ void loop() {
               conf.fontConfig.size, conf.fontConfig.height, conf.fontAlignment);
 
   if (serialDataState == SERIAL_DATA_STATE_INPUTTING) {
-    MessageSizeConfig fontConf = fontConfigs[2];
+    MessageSizeConfig fontConf = fontConfigs[0];
     drawBgSolid(TFT_BLACK, TFT_BLACK);
     drawMessage(newSerialData, 0, fontConf.font, TFT_DARKGREY, fontConf.size,
                 fontConf.height, TL_DATUM);
