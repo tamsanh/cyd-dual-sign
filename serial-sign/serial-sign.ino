@@ -22,7 +22,15 @@ int currentRotation = 1;
 int currentRotation = 3;
 #endif
 
-char serialData[MESSAGE_MAX_LEN] = "00006RNo\nData";
+#define SERIAL_DATA_STATE_AWAITING 0
+#define SERIAL_DATA_STATE_INPUTTING 1
+#define SERIAL_DATA_STATE_FINISHED 2
+
+int serialDataState = SERIAL_DATA_STATE_AWAITING;
+int serialCurrentIndex = 0;
+bool serialPrevByteWasSentinel = false;
+
+char serialData[MESSAGE_MAX_LEN] = "00007W^";
 char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
 typedef struct {
@@ -238,7 +246,16 @@ void drawMessageBasic(const GFXfont *font, int size) {
 bool wasTouched = false;
 int touchTimeoutMillis = 0;
 
-void resetData() { strcpy(serialData, "00006RNo\nData"); }
+void resetData() {
+  strcpy(serialData, "00007W^");
+  newSerialData[0] = '\0';
+  newSerialData[1] = '\0';
+  newSerialData[2] = '\0';
+  newSerialData[3] = '\0';
+  serialDataState = SERIAL_DATA_STATE_AWAITING;
+  serialCurrentIndex = 0;
+  serialPrevByteWasSentinel = false;
+}
 
 void manageTouchRotation() {
   if (ts.tirqTouched() && ts.touched() &&
@@ -256,17 +273,8 @@ void manageTouchRotation() {
 }
 
 #define BACKSPACE_BYTE 127
-#define SENTINEL_BYTE 64
 // SENTINEL_BYTE == '@'
-
-int serialCurrentIndex = 0;
-bool serialPrevByteWasSentinel = false;
-
-#define SERIAL_DATA_STATE_AWAITING 0
-#define SERIAL_DATA_STATE_INPUTTING 1
-#define SERIAL_DATA_STATE_FINISHED 2
-
-int serialDataState = SERIAL_DATA_STATE_AWAITING;
+#define SENTINEL_BYTE 64
 
 void manageSerialData() {
   if (serialDataState == SERIAL_DATA_STATE_FINISHED) {
