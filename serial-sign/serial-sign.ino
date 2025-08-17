@@ -1,46 +1,12 @@
-/*******************************************************************
-    TFT_eSPI button example for the ESP32 Cheap Yellow Display.
-
-    https://github.com/witnessmenow/ESP32-Cheap-Yellow-Display
-
-    Written by Claus Näveke
-    Github: https://github.com/TheNitek
- *******************************************************************/
-
-// Make sure to copy the UserSetup.h file into the library as
-// per the Github Instructions. The pins are defined in there.
-
-// ----------------------------
-// Standard Libraries
-// ----------------------------
-
 #include <SPI.h>
-
-// ----------------------------
-// Additional Libraries - each one of these will need to be installed.
-// ----------------------------
-
-#include <XPT2046_Touchscreen.h>
-
 #include <TFT_eSPI.h>
-// A library for interfacing with LCD displays
-//
-// Can be installed from the library manager (Search for "TFT_eSPI")
-// https://github.com/Bodmer/TFT_eSPI
-
-// ----------------------------
-// Touch Screen pins
-// ----------------------------
-
-// The CYD touch uses some non default
-// SPI pins
+#include <XPT2046_Touchscreen.h>
 
 #define XPT2046_IRQ 36
 #define XPT2046_MOSI 32
 #define XPT2046_MISO 39
 #define XPT2046_CLK 25
 #define XPT2046_CS 33
-// ----------------------------
 
 SPIClass mySpi = SPIClass(VSPI);
 XPT2046_Touchscreen ts(XPT2046_CS, XPT2046_IRQ);
@@ -49,7 +15,8 @@ TFT_eSPI tft = TFT_eSPI();
 // FONT_SIZE, FONT_COLOR, FONT_ALIGNMENT, BG_RENDERER, BG_BG_COLOR, BG_FG_COLOR
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
-char serialData[MESSAGE_MAX_LEN] = "5RCGG0No\nData";
+
+char serialData[MESSAGE_MAX_LEN] = "0005RCNo\nData";
 char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
 typedef struct {
@@ -383,14 +350,15 @@ DrawBg selectBgDrawer(char c) {
 }
 
 StyleConfig parseStyle(char *configData) {
-  MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[0])];
-  int fontColor = parseColor(configData[1]);
-  int fontAlignment = parseAlignment(configData[2]);
   BackgroundConfig bgConfig = {
-      parseColor(configData[3]),
-      parseColor(configData[4]),
-      parseInt(configData[5]),
+      parseColor(configData[1]),
+      parseColor(configData[2]),
+      parseInt(configData[0]),
   };
+
+  MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[3])];
+  int fontColor = parseColor(configData[4]);
+  int fontAlignment = parseAlignment(configData[5]);
   return {fontConfig, fontColor, fontAlignment, bgConfig};
 }
 
@@ -403,6 +371,7 @@ void loop() {
     drawBgSolid(TFT_BLACK, TFT_BLACK);
     drawMessage(newSerialData, 0, fontConf.font, TFT_DARKGREY, fontConf.size,
                 fontConf.height, TL_DATUM);
+    drawBgSolidMillis = 0;
     return;
   }
 
@@ -415,8 +384,10 @@ void loop() {
   switch (conf.bgConfig.bgDrawer) {
   case DRAW_BG_SOLID:
     drawBgSolid(conf.bgConfig.bgColor, conf.bgConfig.fgColor);
+    break;
   case DRAW_BG_SQUARE_SIX:
     drawBgSquareSix(conf.bgConfig.bgColor, conf.bgConfig.fgColor);
+    break;
   }
 
   drawMessage(serialData, conf.fontConfig.font, conf.fontColor,
