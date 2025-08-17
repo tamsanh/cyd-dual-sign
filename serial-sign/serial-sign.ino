@@ -334,7 +334,14 @@ MessageSizeConfig fontConfigs[7] = {
     {&FreeMonoBold24pt7b, 3, 81, 4},
 };
 
-int parseInt(char c) { return c - '0'; }
+int parseInt(char c) {
+  int out = c - '0';
+  if (out >= 6) {
+    return 6;
+  }
+  return out;
+}
+
 int parseAlignment(char c) {
   switch (c) {
   case 'l':
