@@ -16,7 +16,7 @@ TFT_eSPI tft = TFT_eSPI();
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
 
-char serialData[MESSAGE_MAX_LEN] = "000C5RNo\nData";
+char serialData[MESSAGE_MAX_LEN] = "00006RNo\nData";
 char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
 typedef struct {
@@ -169,11 +169,7 @@ void drawMessage(char *str, int offset, const GFXfont *font, int color,
   tft.setTextSize(size);
   tft.setFreeFont(font);
 
-  int linePadding = int(float(fontHeight) / float(2));
-  if (linePadding > 10) {
-    linePadding = 10;
-  }
-
+  int linePadding = 10;
   int lineCount = 1;
   char line[128];
   for (int i = offset; i <= strlen(serialData); i++) {
