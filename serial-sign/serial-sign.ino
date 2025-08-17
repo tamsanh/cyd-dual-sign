@@ -189,8 +189,14 @@ void drawStringMaybeCenter(char *str, int y, int alignment) {
   }
 }
 
-void drawMessage(const GFXfont *font, int color, int size, int fontHeight,
-                 int alignment) {
+void drawMessage(char *str, const GFXfont *font, int color, int size,
+                 int fontHeight, int alignment) {
+  return drawMessage(str, CONFIG_OPTION_COUNT, font, color, size, fontHeight,
+                     alignment);
+}
+
+void drawMessage(char *str, int offset, const GFXfont *font, int color,
+                 int size, int fontHeight, int alignment) {
 
   tft.setTextColor(color);
   tft.setTextSize(size);
@@ -203,8 +209,8 @@ void drawMessage(const GFXfont *font, int color, int size, int fontHeight,
 
   int lineCount = 1;
   char line[128];
-  for (int i = CONFIG_OPTION_COUNT; i <= strlen(serialData); i++) {
-    if (serialData[i] == NEWLINE_BYTE || serialData[i] == '\n') {
+  for (int i = offset; i <= strlen(serialData); i++) {
+    if (str[i] == NEWLINE_BYTE || str[i] == '\n') {
       lineCount += 1;
     }
   }
@@ -220,8 +226,8 @@ void drawMessage(const GFXfont *font, int color, int size, int fontHeight,
 
   int lineIndex = 0;
 
-  for (int i = CONFIG_OPTION_COUNT; i <= strlen(serialData); i++) {
-    if (serialData[i] == NEWLINE_BYTE || serialData[i] == '\n') {
+  for (int i = offset; i <= strlen(str); i++) {
+    if (str[i] == NEWLINE_BYTE || str[i] == '\n') {
       line[lineIndex] = '\0';
       drawStringMaybeCenter(line, y, alignment);
       y += fontHeight;
@@ -229,10 +235,10 @@ void drawMessage(const GFXfont *font, int color, int size, int fontHeight,
       lineIndex = 0;
       line[lineIndex] = '\0';
     } else {
-      line[lineIndex] = serialData[i];
+      line[lineIndex] = str[i];
       lineIndex += 1;
     }
-    if (serialData[i] == '\0') {
+    if (str[i] == '\0') {
       line[lineIndex] = '\0';
       drawStringMaybeCenter(line, y, alignment);
       break;
@@ -279,15 +285,25 @@ void manageTouchRotation() {
 int serialCurrentIndex = 0;
 bool serialPrevByteWasSentinel = false;
 
+#define SERIAL_DATA_STATE_AWAITING 0
+#define SERIAL_DATA_STATE_INPUTTING 1
+
+int serialDataState = SERIAL_DATA_STATE_AWAITING;
+
 void manageSerialData() {
   if (Serial.available()) {
-    clearScreen();
     int byte = Serial.read();
     Serial.print(char(byte));
+    serialDataState = SERIAL_DATA_STATE_INPUTTING;
+
     if (byte == BACKSPACE_BYTE) {
+      clearScreen();
       serialCurrentIndex -= 1;
       newSerialData[serialCurrentIndex] = '\0';
     } else {
+      if (byte == NEWLINE_BYTE) {
+        clearScreen();
+      }
       newSerialData[serialCurrentIndex] = char(byte);
       serialCurrentIndex += 1;
       newSerialData[serialCurrentIndex] = '\0';
@@ -304,6 +320,8 @@ void manageSerialData() {
       serialPrevByteWasSentinel = false;
       strcpy(serialData, newSerialData);
       newSerialData[0] = '\0';
+      clearScreen();
+      serialDataState = SERIAL_DATA_STATE_AWAITING;
     }
   }
 }
@@ -379,6 +397,15 @@ StyleConfig parseStyle(char *configData) {
 void loop() {
   manageTouchRotation();
   manageSerialData();
+
+  if (serialDataState == SERIAL_DATA_STATE_INPUTTING) {
+    MessageSizeConfig fontConf = fontConfigs[2];
+    drawBgSolid(TFT_BLACK, TFT_BLACK);
+    drawMessage(newSerialData, 0, fontConf.font, TFT_DARKGREY, fontConf.size,
+                fontConf.height, TL_DATUM);
+    return;
+  }
+
   if (strlen(serialData) < CONFIG_OPTION_COUNT) {
     delay(50);
     return;
@@ -392,6 +419,6 @@ void loop() {
     drawBgSquareSix(conf.bgConfig.bgColor, conf.bgConfig.fgColor);
   }
 
-  drawMessage(conf.fontConfig.font, conf.fontColor, conf.fontConfig.size,
-              conf.fontConfig.height, conf.fontAlignment);
+  drawMessage(serialData, conf.fontConfig.font, conf.fontColor,
+              conf.fontConfig.size, conf.fontConfig.height, conf.fontAlignment);
 }
