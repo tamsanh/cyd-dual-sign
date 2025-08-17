@@ -233,6 +233,8 @@ void drawMessageBasic(const GFXfont *font, int size) {
 bool wasTouched = false;
 int touchTimeoutMillis = 0;
 
+void resetData() { strcpy(serialData, "00006RNo\nData"); }
+
 void manageTouchRotation() {
   if (ts.tirqTouched() && ts.touched() &&
       (millis() - touchTimeoutMillis > 1500)) {
@@ -243,6 +245,7 @@ void manageTouchRotation() {
       tft.setRotation(currentRotation);
       ts.setRotation(currentRotation);
       touchTimeoutMillis = millis();
+      resetData();
     }
   }
 }
