@@ -49,7 +49,7 @@ TFT_eSPI tft = TFT_eSPI();
 // FONT_SIZE, FONT_COLOR, FONT_ALIGNMENT, BG_RENDERER, BG_BG_COLOR, BG_FG_COLOR
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
-char serialData[MESSAGE_MAX_LEN] = "5R10GGNo\nData";
+char serialData[MESSAGE_MAX_LEN] = "5RCGG0No\nData";
 
 typedef struct {
   const GFXfont *font;
@@ -185,26 +185,42 @@ void drawStringMaybeCenter(char *str, int y, int alignment) {
   }
 }
 
-void drawMessage(const GFXfont *font, int color, int size, int textHeight,
+void drawMessage(const GFXfont *font, int color, int size, int fontHeight,
                  int alignment) {
+
   tft.setTextColor(color);
   tft.setTextSize(size);
   tft.setFreeFont(font);
 
-  int linePadding = int(float(textHeight) / float(2));
+  int linePadding = int(float(fontHeight) / float(2));
   if (linePadding > 10) {
     linePadding = 10;
   }
 
-  int y = 0;
+  int lineCount = 1;
+  char line[128];
+  for (int i = CONFIG_OPTION_COUNT; i <= strlen(serialData); i++) {
+    if (serialData[i] == NEWLINE_BYTE || serialData[i] == '\n') {
+      lineCount += 1;
+    }
+  }
+
+  int textHeight = lineCount * fontHeight + ((lineCount - 1) * linePadding);
+  int y = CENTER_Y - textHeight / 2;
+
+  if (lineCount % 3 == 0) {
+    // We add an extra 1/2 because of the
+    // text that falls right on the center
+    y -= fontHeight / 2;
+  }
+
   int lineIndex = 0;
 
-  char line[128];
   for (int i = CONFIG_OPTION_COUNT; i <= strlen(serialData); i++) {
     if (serialData[i] == NEWLINE_BYTE || serialData[i] == '\n') {
       line[lineIndex] = '\0';
       drawStringMaybeCenter(line, y, alignment);
-      y += textHeight;
+      y += fontHeight;
       y += linePadding;
       lineIndex = 0;
       line[lineIndex] = '\0';
@@ -320,6 +336,15 @@ MessageSizeConfig fontConfigs[7] = {
 };
 
 int parseInt(char c) { return c - '0'; }
+int parseAlignment(char c) {
+  switch (c) {
+  case 'l':
+  case 'L':
+    return TL_DATUM;
+  default:
+    return TC_DATUM;
+  }
+}
 
 DrawBg selectBgDrawer(char c) {
   switch (c) {
@@ -334,7 +359,7 @@ DrawBg selectBgDrawer(char c) {
 StyleConfig parseStyle(char *configData) {
   MessageSizeConfig fontConfig = fontConfigs[parseInt(configData[0])];
   int fontColor = parseColor(configData[1]);
-  int fontAlignment = parseInt(configData[2]);
+  int fontAlignment = parseAlignment(configData[2]);
   BackgroundConfig bgConfig = {
       parseColor(configData[3]),
       parseColor(configData[4]),
