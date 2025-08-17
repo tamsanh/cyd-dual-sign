@@ -50,6 +50,7 @@ TFT_eSPI tft = TFT_eSPI();
 #define CONFIG_OPTION_COUNT 6
 #define MESSAGE_MAX_LEN 512
 char serialData[MESSAGE_MAX_LEN] = "5RCGG0No\nData";
+char newSerialData[MESSAGE_MAX_LEN] = {'\0'};
 
 typedef struct {
   const GFXfont *font;
@@ -129,6 +130,14 @@ void drawBgGradient(int bgColor, int fgColor) {
   }
 }
 
+int drawBgSolidMillis = 0;
+void drawBgSolid(int bgColor, int fgColor) {
+  if (millis() - drawBgSolidMillis > 60000) {
+    tft.fillRect(0, 0, DISP_WIDTH, DISP_HEIGHT, bgColor);
+    drawBgSolidMillis = millis();
+  }
+}
+
 #define SQUARE_SIX_ANIM_TIMEOUT 500
 int drawBgSquareSixCurrentIndex = 6;
 int drawBgSquareSixMillis = 0;
@@ -153,19 +162,14 @@ void drawBgSquareSixSquares(int color) {
 }
 
 void drawBgSquareSix(int bgColor, int fgColor) {
+  if (bgColor == fgColor) {
+    return drawBgSolid(bgColor, fgColor);
+  }
   if (millis() - drawBgSquareSixMillis > SQUARE_SIX_ANIM_TIMEOUT) {
     drawBgSquareSixSquares(bgColor);
     drawBgSquareSixCurrentIndex = (drawBgSquareSixCurrentIndex + 1) % 6;
     drawBgSquareSixMillis = millis();
     drawBgSquareSixSquares(fgColor);
-  }
-}
-
-int drawBgSolidMillis = 0;
-void drawBgSolid(int bgColor, int fgColor) {
-  if (millis() - drawBgSolidMillis > 60000) {
-    tft.fillRect(0, 0, DISP_WIDTH, DISP_HEIGHT, bgColor);
-    drawBgSolidMillis = millis();
   }
 }
 
@@ -282,22 +286,24 @@ void manageSerialData() {
     Serial.print(char(byte));
     if (byte == BACKSPACE_BYTE) {
       serialCurrentIndex -= 1;
-      serialData[serialCurrentIndex] = '\0';
+      newSerialData[serialCurrentIndex] = '\0';
     } else {
-      serialData[serialCurrentIndex] = char(byte);
+      newSerialData[serialCurrentIndex] = char(byte);
       serialCurrentIndex += 1;
-      serialData[serialCurrentIndex] = '\0';
+      newSerialData[serialCurrentIndex] = '\0';
     }
     if (byte == '@' && !serialPrevByteWasSentinel) {
       serialPrevByteWasSentinel = true;
     } else if (byte == '@' && serialPrevByteWasSentinel) {
       // Erase previous two @s and end message
       serialCurrentIndex -= 1;
-      serialData[serialCurrentIndex] = '\0';
+      newSerialData[serialCurrentIndex] = '\0';
       serialCurrentIndex -= 1;
-      serialData[serialCurrentIndex] = '\0';
+      newSerialData[serialCurrentIndex] = '\0';
       serialCurrentIndex = 0;
       serialPrevByteWasSentinel = false;
+      strcpy(serialData, newSerialData);
+      newSerialData[0] = '\0';
     }
   }
 }
@@ -322,6 +328,8 @@ int parseColor(char c) {
   case '0':
     return TFT_BLACK;
   case '1':
+  case 'W':
+  case 'w':
     return TFT_WHITE;
   default:
     return TFT_WHITE;
