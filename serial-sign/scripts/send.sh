@@ -2,6 +2,7 @@
 
 L_PORT=/dev/cu.usbserial-21430
 R_PORT=/dev/cu.usbserial-2110
+
 BAUD=115200
 
 function send {
@@ -24,4 +25,7 @@ function send {
     done;
 }
 
-PORT=${L_PORT} NAME=left send "00006WOK?@@"
+while read line
+do
+    PORT=${L_PORT} NAME=left send ${line}
+done
