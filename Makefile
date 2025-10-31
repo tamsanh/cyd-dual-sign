@@ -15,3 +15,6 @@ monitor-r:
 
 monitor-l:
 	screen -m -port /dev/cu.usbserial-21430 115200
+
+run: ## Run
+	uv run python main.py

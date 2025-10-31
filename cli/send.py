@@ -1,11 +1,12 @@
-from enum import Enum
-from typing import NamedTuple
-import serial
 import argparse
 import sys
+from enum import Enum
+from typing import Literal, NamedTuple
+
+import serial
 
 L_PORT = "/dev/cu.usbserial-21430"
-R_PORT = "/dev/cu.usbserial-2110"
+R_PORT = "/dev/cu.usbserial-2140"
 BAUD = 115200
 
 NUM_FONT_CONFIGS = 8
@@ -47,11 +48,23 @@ class AlignmentEnum(Enum):
     CENTER = "1"
 
 
+Color = Literal[
+    "R",
+    "G",
+    "B",
+    "P",
+    "Y",
+    "0",
+    "1",
+    "W",
+]
+
+
 class StyleConfig(NamedTuple):
     b: BackgroundEnum
-    bb: str
-    bf: str
-    fc: str
+    bb: Color
+    bf: Color
+    fc: Color
     fs: int
     fa: AlignmentEnum
 
