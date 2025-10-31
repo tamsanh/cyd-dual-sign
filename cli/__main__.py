@@ -318,31 +318,31 @@ class Screens:
         self.thread = t
         self.thread.start()
 
+    eye_style = StyleConfig(
+        BackgroundEnum.SOLID,
+        "0",
+        "0",
+        "1",
+        8,
+        AlignmentEnum.CENTER,
+    )
+
     def _eyes(self):
         self.state_change.clear()
-
-        eye_style = StyleConfig(
-            BackgroundEnum.SOLID,
-            "0",
-            "0",
-            "1",
-            8,
-            AlignmentEnum.CENTER,
-        )
 
         eyes_open_shape = "o"
         eyes_close_shape = "-"
 
         while self.state == "eyes" and not self.state_change.is_set():
-            self.left_screen.send(eye_style, eyes_open_shape)
-            self.right_screen.send(eye_style, eyes_open_shape)
+            self.left_screen.send(self.eye_style, eyes_open_shape)
+            self.right_screen.send(self.eye_style, eyes_open_shape)
 
             eyes_open_time = random.randint(0, 15)
             if self.state_change.wait(eyes_open_time):
                 break
 
-            self.left_screen.send(eye_style, eyes_close_shape)
-            self.right_screen.send(eye_style, eyes_close_shape)
+            self.left_screen.send(self.eye_style, eyes_close_shape)
+            self.right_screen.send(self.eye_style, eyes_close_shape)
 
             eyes_close_time = random.randint(0, 2)
             if self.state_change.wait(eyes_close_time):
@@ -411,6 +411,8 @@ class SignCLI(App):
         self.left_screen = Screen(LEFT_PORT, ScreenEnum.LEFT, ui_callback=left_ui)
         self.right_screen = Screen(RIGHT_PORT, ScreenEnum.RIGHT, ui_callback=right_ui)
         self.screens = Screens(self.left_screen, self.right_screen)
+        self.left_preview.update_preview(self.screens.eye_style, "^")
+        self.right_preview.update_preview(self.screens.eye_style, "^")
 
     def on_resize(self) -> None:
         self.update_dividers()
