@@ -31,8 +31,8 @@ from .send import (
     create_style_str,
 )
 
-LEFT_PORT = "/dev/cu.usbserial-1240"
-RIGHT_PORT = "/dev/cu.usbserial-1230"
+LEFT_PORT = "/dev/cu.usbserial-110"
+RIGHT_PORT = "/dev/cu.usbserial-110"
 
 
 # ----------------------------
@@ -142,6 +142,59 @@ class ScreenPreview(Static):
         self.update("\n".join(lines))
 
 
+@attrs.define
+class ScreenSizeLimit:
+    width: int
+    height: int
+
+
+size_limits: dict[SizeOption, int] = {
+    0: 22,
+    1: 14,
+    2: 11,
+    3: 8,
+    4: 5,
+    5: 5,
+    6: 4,
+    7: 1,
+    8: 1,
+}
+
+
+def _chunk_for_size(size: SizeOption, values: str):
+    chunk_size = size_limits[size]
+
+    out = []
+    current_line = ""
+    next_word = ""
+    for c in values:
+        next_word += c
+        if not c.isalpha():
+            if len(current_line) + len(next_word) < chunk_size:
+                current_line += next_word
+            elif (
+                len(current_line) + len(next_word) == chunk_size
+                and next_word[-1] == " "
+            ):
+                current_line += next_word[:-1]
+            else:
+                out.append(current_line)
+                current_line = next_word
+            next_word = ""
+
+    if next_word:
+        if len(current_line) + len(next_word) < chunk_size:
+            current_line += "".join(next_word)
+        else:
+            out.append(current_line)
+            current_line = next_word
+        next_word = ""
+
+    if current_line:
+        out.append(current_line)
+    return "\n".join(out)
+
+
 # ----------------------------
 # Screen + sending logic
 # ----------------------------
@@ -181,12 +234,14 @@ class Screen:
         self.current_style = style
         self.current_values = values
 
-        self._emit_ui(style, values)
+        chunked_values = _chunk_for_size(style.fs, values)
+
+        self._emit_ui(style, chunked_values)
 
         try:
             BAUD = 115200
             with Serial(self.port, BAUD, timeout=1) as ser:
-                writable = f"{create_style_str(style)}{values}@@"
+                writable = f"{create_style_str(style)}{chunked_values}@@"
                 ser.write(writable.encode())
         except Exception:
             print(f"Error: Failed to send to eye on {self.port}")
@@ -319,7 +374,7 @@ class Screens:
         return target_screen[target]
 
     def _static(self, target: ScreenEnum, msg: str):
-        style = StyleConfig(
+        default_style = StyleConfig(
             BackgroundEnum.SOLID,
             "0",
             "0",
@@ -328,6 +383,7 @@ class Screens:
             AlignmentEnum.CENTER,
         )
         screen = self.get_screen(target)
+        style = screen.current_style or default_style
         screen.send(style, msg)
 
     def eyes(self):
