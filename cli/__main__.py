@@ -31,8 +31,8 @@ from .send import (
     create_style_str,
 )
 
-LEFT_PORT = "/dev/cu.usbserial-110"
-RIGHT_PORT = "/dev/cu.usbserial-110"
+LEFT_PORT = "/dev/cu.usbserial-11230"
+RIGHT_PORT = "/dev/cu.usbserial-11240"
 
 
 # ----------------------------
@@ -192,7 +192,7 @@ def _chunk_for_size(size: SizeOption, values: str):
 
     if current_line:
         out.append(current_line)
-    return "\n".join(out)
+    return "\n".join(out).strip()
 
 
 # ----------------------------
@@ -462,7 +462,7 @@ class Screens:
             "0",
             "0",
             "1",
-            8,
+            7,
             AlignmentEnum.CENTER,
         )
 
