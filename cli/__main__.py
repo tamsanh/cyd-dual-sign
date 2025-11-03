@@ -243,8 +243,8 @@ class Screen:
             with Serial(self.port, BAUD, timeout=1) as ser:
                 writable = f"{create_style_str(style)}{chunked_values}@@"
                 ser.write(writable.encode())
-        except Exception:
-            print(f"Error: Failed to send to eye on {self.port}")
+        except Exception as e:
+            print(f"Error: Failed to send to eye on {self.port}: {e}")
 
     def send(self, style: StyleConfig, values: str):
         # Keep hardware I/O off the UI thread.
@@ -333,15 +333,6 @@ class Screens:
         if target_datetime <= datetime.now():
             target_datetime += timedelta(days=1)
 
-        style = StyleConfig(
-            BackgroundEnum.SQUARES,
-            "0",
-            "R",
-            "W",
-            2,
-            AlignmentEnum.CENTER,
-        )
-
         prev_minutes_left = None
         while True:
             if self.state_change[target].is_set():
@@ -350,6 +341,34 @@ class Screens:
                 0, int((target_datetime - datetime.now()).total_seconds())
             )
             minutes_left = seconds_left // 60
+
+            style = StyleConfig(
+                BackgroundEnum.SOLID,
+                "0",
+                "0",
+                "W",
+                2,
+                AlignmentEnum.CENTER,
+            )
+
+            if minutes_left < 5:
+                style = StyleConfig(
+                    BackgroundEnum.SQUARES,
+                    "0",
+                    "R",
+                    "W",
+                    2,
+                    AlignmentEnum.CENTER,
+                )
+            elif minutes_left < 15:
+                style = StyleConfig(
+                    BackgroundEnum.SQUARES,
+                    "0",
+                    "Y",
+                    "W",
+                    2,
+                    AlignmentEnum.CENTER,
+                )
 
             # Update once per minute (and at start)
             if prev_minutes_left != minutes_left:
@@ -417,7 +436,7 @@ class Screens:
 
     def eyes_single(self, target: ScreenEnum):
         self._stop_thread(target)
-        t = threading.Thread(target=self._eyes, daemon=True)
+        t = threading.Thread(target=self._eyes_single, args=(target,), daemon=True)
         self.threads[target] = t
         self.threads[target].start()
 
@@ -427,7 +446,7 @@ class Screens:
             "0",
             "0",
             "1",
-            3,
+            6,
             AlignmentEnum.CENTER,
         )
 
