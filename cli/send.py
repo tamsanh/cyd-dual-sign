@@ -60,12 +60,15 @@ Color = Literal[
 ]
 
 
+SizeOption = Literal[0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+
 class StyleConfig(NamedTuple):
     b: BackgroundEnum
     bb: Color
     bf: Color
     fc: Color
-    fs: int
+    fs: SizeOption
     fa: AlignmentEnum
 
 

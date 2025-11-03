@@ -26,6 +26,7 @@ from .send import (
     AlignmentEnum,
     BackgroundEnum,
     ScreenEnum,
+    SizeOption,
     StyleConfig,
     create_style_str,
 )
@@ -180,13 +181,10 @@ class Screen:
         self.current_style = style
         self.current_values = values
 
-        # 1) Update UI preview first (fast, local)
         self._emit_ui(style, values)
 
-        # 2) Attempt to write to the physical device
         try:
             BAUD = 115200
-            # Using context manager ensures close() on error
             with Serial(self.port, BAUD, timeout=1) as ser:
                 writable = f"{create_style_str(style)}{values}@@"
                 ser.write(writable.encode())
@@ -222,6 +220,26 @@ class Screens:
             self.state_change.set()
             self.thread.join(timeout=1.0)
         self.state_change.clear()
+
+    def _set_size(self, size: SizeOption, target: ScreenEnum):
+        screen = self.get_screen(target)
+        cur_style = screen.current_style
+        new_style = StyleConfig(
+            cur_style.b,
+            cur_style.bb,
+            cur_style.bf,
+            cur_style.fc,
+            size,
+            cur_style.fa,
+        )
+        screen.send(new_style, screen.current_values)
+
+    def set_size(self, size: int, target: ScreenEnum):
+        self._stop_thread()
+        self.thread = threading.Thread(
+            target=self._set_size, args=(size, target), daemon=True
+        )
+        self.thread.start()
 
     def count_down(self, user_message: str):
         self._stop_thread()
@@ -350,6 +368,8 @@ class Screens:
 
 
 Action = Literal[
+    "SET_SIZE_LEFT",
+    "SET_SIZE_RIGHT",
     "SHOW_STATIC_MESSAGE_LEFT",
     "SHOW_STATIC_MESSAGE_RIGHT",
     "SHOW_COUNTDOWN",
@@ -442,6 +462,19 @@ class SignCLI(App):
             return "SHOW_CALL"
         if re.search(r"\d\d:\d\d$", user_message):
             return "SHOW_COUNTDOWN"
+        if (
+            len(user_message) == 1
+            and user_message.isdigit()
+            and (0 <= int(user_message) < 9)
+        ):
+            return "SET_SIZE_RIGHT"
+        if (
+            len(user_message) == 2
+            and user_message.startswith("!")
+            and user_message[1].isdigit()
+            and (0 <= int(user_message[1]) < 9)
+        ):
+            return "SET_SIZE_LEFT"
         if user_message.startswith("!"):
             return "SHOW_STATIC_MESSAGE_LEFT"
         return "SHOW_STATIC_MESSAGE_RIGHT"
@@ -459,6 +492,10 @@ class SignCLI(App):
                 self.screens.on_call()
             case "SHOW_COUNTDOWN":
                 self.screens.count_down(user_message)
+            case "SET_SIZE_RIGHT":
+                self.screens.set_size(int(user_message), ScreenEnum.RIGHT)
+            case "SET_SIZE_LEFT":
+                self.screens.set_size(int(user_message[1]), ScreenEnum.LEFT)
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         user_message = event.value
