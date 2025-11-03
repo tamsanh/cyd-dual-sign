@@ -253,6 +253,8 @@ class Screen:
 
 ScreenState = Literal[
     "eyes",
+    "eyesleft",
+    "eyesright",
     "left_timer",
     "right_timer",
     "left_static",
@@ -267,14 +269,31 @@ class Screens:
     right_screen: Screen
     state: ScreenState = "eyes"
 
-    state_change = threading.Event()
-    thread: Thread | None = None
+    state_change = {
+        ScreenEnum.LEFT: threading.Event(),
+        ScreenEnum.RIGHT: threading.Event(),
+    }
+    threads: dict[ScreenEnum, Thread] = {}
 
-    def _stop_thread(self):
-        if self.thread and self.thread.is_alive():
-            self.state_change.set()
-            self.thread.join(timeout=1.0)
-        self.state_change.clear()
+    def _stop_thread(self, target: ScreenEnum | None = None):
+        if not target:
+            for screen_enum in [ScreenEnum.LEFT, ScreenEnum.RIGHT]:
+                if screen_enum not in self.threads:
+                    continue
+                thread = self.threads[screen_enum]
+                if thread.is_alive():
+                    self.state_change[screen_enum].set()
+
+            for screen_enum in [ScreenEnum.LEFT, ScreenEnum.RIGHT]:
+                if screen_enum not in self.threads:
+                    continue
+                thread = self.threads[screen_enum]
+                thread.join(timeout=10)
+            return
+
+        if target in self.threads and self.threads[target].is_alive():
+            self.state_change[target].set()
+            self.threads[target].join(timeout=10)
 
     def _set_size(self, size: SizeOption, target: ScreenEnum):
         screen = self.get_screen(target)
@@ -290,20 +309,21 @@ class Screens:
         screen.send(new_style, screen.current_values)
 
     def set_size(self, size: int, target: ScreenEnum):
-        self._stop_thread()
-        self.thread = threading.Thread(
+        self._stop_thread(target)
+        self.threads[target] = threading.Thread(
             target=self._set_size, args=(size, target), daemon=True
         )
-        self.thread.start()
+        self.threads[target].start()
 
-    def count_down(self, user_message: str):
-        self._stop_thread()
-        self.thread = threading.Thread(
-            target=self._count_down, args=(user_message,), daemon=True
+    def count_down(self, user_message: str, target: ScreenEnum):
+        self._stop_thread(target)
+        self.threads[target] = threading.Thread(
+            target=self._count_down, args=(user_message, target), daemon=True
         )
-        self.thread.start()
+        self.threads[target].start()
 
-    def _count_down(self, user_message: str):
+    def _count_down(self, user_message: str, target: ScreenEnum):
+        screen = self.get_screen(target)
         time_msg = _parse_time_message(user_message)
         assert time_msg
 
@@ -318,13 +338,13 @@ class Screens:
             "0",
             "R",
             "W",
-            5,
+            2,
             AlignmentEnum.CENTER,
         )
 
         prev_minutes_left = None
         while True:
-            if self.state_change.is_set():
+            if self.state_change[target].is_set():
                 break
             seconds_left = max(
                 0, int((target_datetime - datetime.now()).total_seconds())
@@ -334,7 +354,7 @@ class Screens:
             # Update once per minute (and at start)
             if prev_minutes_left != minutes_left:
                 label = f"{time_msg.message} {minutes_left} Min".strip()
-                self.right_screen.send(style, label)
+                screen.send(style, label)
                 prev_minutes_left = minutes_left
 
             if seconds_left <= 0:
@@ -344,8 +364,10 @@ class Screens:
 
     def on_call(self):
         self._stop_thread()
-        self.thread = threading.Thread(target=self._on_call, daemon=True)
-        self.thread.start()
+        self.threads[ScreenEnum.LEFT] = threading.Thread(
+            target=self._on_call, daemon=True
+        )
+        self.threads[ScreenEnum.LEFT].start()
 
     def _on_call(self):
         style = StyleConfig(
@@ -356,15 +378,21 @@ class Screens:
             5,
             AlignmentEnum.CENTER,
         )
+        if (
+            ScreenEnum.RIGHT in self.threads
+            and self.threads[ScreenEnum.RIGHT].is_alive()
+        ):
+            self.left_screen.send(style, "ON CALL")
+            return
         self.left_screen.send(style, "ON")
         self.right_screen.send(style, "CALL")
 
     def static(self, target: ScreenEnum, msg: str):
-        self._stop_thread()
-        self.thread = threading.Thread(
+        self._stop_thread(target)
+        self.threads[target] = threading.Thread(
             target=self._static, args=(target, msg), daemon=True
         )
-        self.thread.start()
+        self.threads[target].start()
 
     def get_screen(self, target: ScreenEnum):
         target_screen = {
@@ -373,53 +401,89 @@ class Screens:
         }
         return target_screen[target]
 
-    def _static(self, target: ScreenEnum, msg: str):
-        default_style = StyleConfig(
-            BackgroundEnum.SOLID,
-            "0",
-            "0",
-            "1",
-            4,
-            AlignmentEnum.CENTER,
-        )
-        screen = self.get_screen(target)
-        style = screen.current_style or default_style
-        screen.send(style, msg)
-
-    def eyes(self):
-        self.state = "eyes"
-        t = threading.Thread(target=self._eyes, daemon=True)
-        self.thread = t
-        self.thread.start()
-
-    eye_style = StyleConfig(
+    default_style = StyleConfig(
         BackgroundEnum.SOLID,
         "0",
         "0",
         "1",
-        8,
+        4,
         AlignmentEnum.CENTER,
     )
 
-    def _eyes(self):
-        self.state_change.clear()
+    def _static(self, target: ScreenEnum, msg: str):
+        screen = self.get_screen(target)
+        style = screen.current_style or self.default_style
+        screen.send(style, msg)
+
+    def eyes_single(self, target: ScreenEnum):
+        self._stop_thread(target)
+        t = threading.Thread(target=self._eyes, daemon=True)
+        self.threads[target] = t
+        self.threads[target].start()
+
+    def _eyes_single(self, target: ScreenEnum):
+        eye_style = StyleConfig(
+            BackgroundEnum.SOLID,
+            "0",
+            "0",
+            "1",
+            3,
+            AlignmentEnum.CENTER,
+        )
+
+        self.state_change[target].clear()
+
+        screen = self.get_screen(target)
 
         eyes_open_shape = "o"
         eyes_close_shape = "-"
 
-        while self.state == "eyes" and not self.state_change.is_set():
-            self.left_screen.send(self.eye_style, eyes_open_shape)
-            self.right_screen.send(self.eye_style, eyes_open_shape)
+        while self.state == "eyes" and not self.state_change[target].is_set():
+            screen.send(eye_style, f"{eyes_open_shape}.{eyes_open_shape}")
 
             eyes_open_time = random.randint(0, 15)
-            if self.state_change.wait(eyes_open_time):
+            if self.state_change[target].wait(eyes_open_time):
                 break
 
-            self.left_screen.send(self.eye_style, eyes_close_shape)
-            self.right_screen.send(self.eye_style, eyes_close_shape)
+            screen.send(eye_style, f"{eyes_close_shape}.{eyes_close_shape}")
+            eyes_close_time = random.randint(0, 2)
+            if self.state_change[target].wait(eyes_close_time):
+                break
+
+    def eyes(self):
+        self.state = "eyes"
+        t = threading.Thread(target=self._eyes, daemon=True)
+        self.threads[ScreenEnum.LEFT] = t
+        self.threads[ScreenEnum.LEFT].start()
+
+    def _eyes(self):
+        eye_style = StyleConfig(
+            BackgroundEnum.SOLID,
+            "0",
+            "0",
+            "1",
+            8,
+            AlignmentEnum.CENTER,
+        )
+
+        self.state_change[ScreenEnum.LEFT].clear()
+
+        eyes_open_shape = "o"
+        eyes_close_shape = "-"
+
+        while self.state == "eyes" and not self.state_change[ScreenEnum.LEFT].is_set():
+            self.left_screen.send(eye_style, eyes_open_shape)
+            self.right_screen.send(eye_style, eyes_open_shape)
+
+            eyes_open_time = random.randint(0, 15)
+            if self.state_change[ScreenEnum.LEFT].wait(eyes_open_time):
+                break
+
+            self.left_screen.send(eye_style, eyes_close_shape)
+            self.right_screen.send(eye_style, eyes_close_shape)
 
             eyes_close_time = random.randint(0, 2)
-            if self.state_change.wait(eyes_close_time):
+            if self.state_change[ScreenEnum.LEFT].wait(eyes_close_time):
                 break
 
 
@@ -428,8 +492,11 @@ Action = Literal[
     "SET_SIZE_RIGHT",
     "SHOW_STATIC_MESSAGE_LEFT",
     "SHOW_STATIC_MESSAGE_RIGHT",
-    "SHOW_COUNTDOWN",
+    "SHOW_COUNTDOWN_LEFT",
+    "SHOW_COUNTDOWN_RIGHT",
     "EYES",
+    "EYES_LEFT",
+    "EYES_RIGHT",
     "SHOW_CALL",
 ]
 
@@ -487,8 +554,8 @@ class SignCLI(App):
         self.left_screen = Screen(LEFT_PORT, ScreenEnum.LEFT, ui_callback=left_ui)
         self.right_screen = Screen(RIGHT_PORT, ScreenEnum.RIGHT, ui_callback=right_ui)
         self.screens = Screens(self.left_screen, self.right_screen)
-        self.left_preview.update_preview(self.screens.eye_style, "^")
-        self.right_preview.update_preview(self.screens.eye_style, "^")
+        self.left_preview.update_preview(self.screens.default_style, "^")
+        self.right_preview.update_preview(self.screens.default_style, "^")
 
     def on_resize(self) -> None:
         self.update_dividers()
@@ -514,10 +581,16 @@ class SignCLI(App):
         user_message = user_message.strip()
         if user_message.lower() == "eyes":
             return "EYES"
+        if user_message.lower() == "eyesright":
+            return "EYES_RIGHT"
+        if user_message.lower() == "eyesleft":
+            return "EYES_LEFT"
         if user_message.lower() == "call":
             return "SHOW_CALL"
         if re.search(r"\d\d:\d\d$", user_message):
-            return "SHOW_COUNTDOWN"
+            if user_message.startswith("!"):
+                return "SHOW_COUNTDOWN_LEFT"
+            return "SHOW_COUNTDOWN_RIGHT"
         if (
             len(user_message) == 1
             and user_message.isdigit()
@@ -546,8 +619,14 @@ class SignCLI(App):
                 self.screens.static(ScreenEnum.RIGHT, user_message)
             case "SHOW_CALL":
                 self.screens.on_call()
-            case "SHOW_COUNTDOWN":
-                self.screens.count_down(user_message)
+            case "EYES_RIGHT":
+                self.screens.eyes_single(ScreenEnum.RIGHT)
+            case "EYES_LEFT":
+                self.screens.eyes_single(ScreenEnum.LEFT)
+            case "SHOW_COUNTDOWN_LEFT":
+                self.screens.count_down(user_message, target=ScreenEnum.LEFT)
+            case "SHOW_COUNTDOWN_RIGHT":
+                self.screens.count_down(user_message, target=ScreenEnum.RIGHT)
             case "SET_SIZE_RIGHT":
                 self.screens.set_size(int(user_message), ScreenEnum.RIGHT)
             case "SET_SIZE_LEFT":
