@@ -1,0 +1,13 @@
+[project]
+name = "cyd-dual-sign"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "attrs>=25.4.0",
+    "cattrs>=25.3.0",
+    "pyserial>=3.5",
+    "pyyaml>=6.0.3",
+    "textual>=6.4.0",
+]

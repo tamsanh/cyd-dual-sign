@@ -1,0 +1,71 @@
+
+Screen {
+    layout: vertical;
+}
+
+#chat-container {
+    height: 1fr;
+    # border: solid $primary;
+}
+
+#messages {
+    height: 100%;
+    scrollbar-size: 0 0;
+}
+
+#input-container {
+    height: auto;
+    layout: horizontal;
+    margin: 0 0;
+}
+
+#prompt {
+    width: auto;
+    content-align: center middle;
+}
+
+#chat-input {
+    width: 1fr;
+    height: 1;
+    background: transparent;
+    border: none;
+}
+
+#divider-top, #divider-bottom {
+    width: 100%;
+    height: 1;
+}
+
+.message-logo {
+    # background: $primary 20%;
+    margin: 0 0;
+    # border-left: thick $primary;
+}
+
+.message-user {
+    background: $primary 20%;
+    margin: 0 0;
+    padding: 0 3;
+    border-left: thick $primary;
+}
+
+.message-error {
+    background: $error 20%;
+    margin: 0 0;
+    padding: 0 1;
+    border-left: thick $error;
+}
+
+.message-assistant {
+    background: $secondary 20%;
+    margin: 0 0;
+    padding: 0 1;
+    border-left: thick $secondary;
+}
+
+.message-cmd {
+    # background: $secondary 20%;
+    margin: 0 0;
+    padding: 0 1;
+    border-left: thick $surface;
+}
