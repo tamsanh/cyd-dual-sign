@@ -169,7 +169,7 @@ def _chunk_for_size(size: SizeOption, values: str):
     next_word = ""
     for c in values:
         next_word += c
-        if not c.isalpha():
+        if not c.isalnum():
             if len(current_line) + len(next_word) < chunk_size:
                 current_line += next_word
             elif (
