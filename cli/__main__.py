@@ -1,6 +1,7 @@
 # main.py
 import asyncio
 import json
+import math
 import os
 import random
 import re
@@ -340,7 +341,7 @@ class Screens:
             seconds_left = max(
                 0, int((target_datetime - datetime.now()).total_seconds())
             )
-            minutes_left = seconds_left // 60
+            minutes_left = math.ceil(seconds_left / 60)
 
             style = StyleConfig(
                 BackgroundEnum.SOLID,
