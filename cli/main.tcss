@@ -42,7 +42,7 @@ Screen {
     # border-left: thick $primary;
 }
 
-.message-user {
+.message-assistant {
     background: $primary 20%;
     margin: 0 0;
     padding: 0 3;
@@ -56,7 +56,7 @@ Screen {
     border-left: thick $error;
 }
 
-.message-assistant {
+.message-user {
     background: $secondary 20%;
     margin: 0 0;
     padding: 0 1;

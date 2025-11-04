@@ -32,9 +32,6 @@ from .send import (
     create_style_str,
 )
 
-LEFT_PORT = "/dev/cu.usbserial-11230"
-RIGHT_PORT = "/dev/cu.usbserial-11240"
-
 
 # ----------------------------
 # Message bubble for the chat
@@ -203,9 +200,12 @@ def _chunk_for_size(size: SizeOption, values: str):
 class Screen:
     port: str
     pos: ScreenEnum
+
+    on_send_error: Callable[[], None]
+
     # Callback invoked whenever a frame is "sent" so the UI can mirror it.
     # This MUST be thread-safe (i.e., schedule work on the Textual thread).
-    ui_callback: Optional[Callable[[StyleConfig, str], None]] = None
+    ui_callback: Callable[[StyleConfig, str], None]
 
     current_style: StyleConfig = StyleConfig(
         BackgroundEnum.SOLID,
@@ -245,6 +245,7 @@ class Screen:
                 writable = f"{create_style_str(style)}{chunked_values}@@"
                 ser.write(writable.encode())
         except Exception as e:
+            self.on_send_error()
             print(f"Error: Failed to send to eye on {self.port}: {e}")
 
     def send(self, style: StyleConfig, values: str):
@@ -352,7 +353,7 @@ class Screens:
                 AlignmentEnum.CENTER,
             )
 
-            if minutes_left < 5:
+            if minutes_left <= 5:
                 style = StyleConfig(
                     BackgroundEnum.SQUARES,
                     "0",
@@ -361,7 +362,7 @@ class Screens:
                     2,
                     AlignmentEnum.CENTER,
                 )
-            elif minutes_left < 15:
+            elif minutes_left <= 10:
                 style = StyleConfig(
                     BackgroundEnum.SQUARES,
                     "0",
@@ -508,6 +509,7 @@ class Screens:
 
 
 Action = Literal[
+    "SWITCH_SCREENS",
     "SET_SIZE_LEFT",
     "SET_SIZE_RIGHT",
     "SHOW_STATIC_MESSAGE_LEFT",
@@ -538,6 +540,9 @@ class SignCLI(App):
     # Physical screens + coordinator
     screens: Screens
 
+    left_port: str = ""
+    right_port: str = ""
+
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True, name="NORTH CLI")
 
@@ -559,6 +564,49 @@ class SignCLI(App):
             yield Input(id="chat-input")
         yield Static("", id="divider-bottom")
 
+    def update_ports(self):
+        possible_ports = []
+        for f in os.listdir("/dev/"):
+            if f.startswith("cu.usbserial-"):
+                possible_ports.append(f"/dev/{f}")
+        if len(possible_ports) >= 1:
+            self.left_port = possible_ports[0]
+        if len(possible_ports) >= 2:
+            self.right_port = possible_ports[1]
+        else:
+            self.right_port = ""
+
+        self.left_screen.port = self.left_port
+        self.right_screen.port = self.right_port
+
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.add_message("assistant", "LEFT PORT: " + self.left_port))
+        loop.create_task(
+            self.add_message("assistant", "RIGHT PORT: " + self.right_port)
+        )
+
+    def switch_screens(self):
+        self.left_port, self.right_port = self.right_port, self.left_port
+        self.left_screen.port = self.left_port
+        self.right_screen.port = self.right_port
+
+        right_style, right_values = (
+            self.right_screen.current_style,
+            self.right_screen.current_values,
+        )
+        left_style, left_values = (
+            self.left_screen.current_style,
+            self.left_screen.current_values,
+        )
+        self.left_screen.send(right_style, right_values)
+        self.right_screen.send(left_style, left_values)
+
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.add_message("assistant", "LEFT PORT: " + self.left_port))
+        loop.create_task(
+            self.add_message("assistant", "RIGHT PORT: " + self.right_port)
+        )
+
     async def on_mount(self) -> None:
         self.query_one("#chat-input", Input).focus()
         self.update_dividers()
@@ -571,8 +619,20 @@ class SignCLI(App):
             self.call_from_thread(self.right_preview.update_preview, style, values)
 
         # Hook screens to both serial ports and UI previews
-        self.left_screen = Screen(LEFT_PORT, ScreenEnum.LEFT, ui_callback=left_ui)
-        self.right_screen = Screen(RIGHT_PORT, ScreenEnum.RIGHT, ui_callback=right_ui)
+        self.left_screen = Screen(
+            self.left_port,
+            ScreenEnum.LEFT,
+            on_send_error=self.update_ports,
+            ui_callback=left_ui,
+        )
+        self.right_screen = Screen(
+            self.right_port,
+            ScreenEnum.RIGHT,
+            on_send_error=self.update_ports,
+            ui_callback=right_ui,
+        )
+
+        self.update_ports()
         self.screens = Screens(self.left_screen, self.right_screen)
         self.left_preview.update_preview(self.screens.default_style, "^")
         self.right_preview.update_preview(self.screens.default_style, "^")
@@ -624,6 +684,8 @@ class SignCLI(App):
             and (0 <= int(user_message[1]) < 9)
         ):
             return "SET_SIZE_LEFT"
+        if user_message.lower() == "switch":
+            return "SWITCH_SCREENS"
         if user_message.startswith("!"):
             return "SHOW_STATIC_MESSAGE_LEFT"
         return "SHOW_STATIC_MESSAGE_RIGHT"
@@ -634,7 +696,10 @@ class SignCLI(App):
                 self.screens.eyes()
             case "SHOW_STATIC_MESSAGE_LEFT":
                 # Strip leading "!" so the actual message is clean on the device
-                self.screens.static(ScreenEnum.LEFT, user_message.lstrip("!").strip())
+                self.screens.static(
+                    ScreenEnum.LEFT,
+                    user_message.lstrip("!").strip(),
+                )
             case "SHOW_STATIC_MESSAGE_RIGHT":
                 self.screens.static(ScreenEnum.RIGHT, user_message)
             case "SHOW_CALL":
@@ -644,13 +709,18 @@ class SignCLI(App):
             case "EYES_LEFT":
                 self.screens.eyes_single(ScreenEnum.LEFT)
             case "SHOW_COUNTDOWN_LEFT":
-                self.screens.count_down(user_message, target=ScreenEnum.LEFT)
+                self.screens.count_down(
+                    user_message.lstrip("!").strip(),
+                    target=ScreenEnum.LEFT,
+                )
             case "SHOW_COUNTDOWN_RIGHT":
                 self.screens.count_down(user_message, target=ScreenEnum.RIGHT)
             case "SET_SIZE_RIGHT":
                 self.screens.set_size(int(user_message), ScreenEnum.RIGHT)
             case "SET_SIZE_LEFT":
                 self.screens.set_size(int(user_message[1]), ScreenEnum.LEFT)
+            case "SWITCH_SCREENS":
+                self.switch_screens()
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         user_message = event.value
@@ -660,7 +730,7 @@ class SignCLI(App):
         current_action = self.identify_action(user_message)
 
         await self.reduce_action(current_action, user_message)
-        await self.add_message("assistant", user_message)
+        await self.add_message("user", user_message)
 
 
 if __name__ == "__main__":
