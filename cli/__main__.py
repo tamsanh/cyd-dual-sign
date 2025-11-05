@@ -291,11 +291,13 @@ class Screens:
                     continue
                 thread = self.threads[screen_enum]
                 thread.join(timeout=10)
+                self.state_change[screen_enum].clear()
             return
 
         if target in self.threads and self.threads[target].is_alive():
             self.state_change[target].set()
             self.threads[target].join(timeout=10)
+        self.state_change[target].clear()
 
     def _set_size(self, size: SizeOption, target: ScreenEnum):
         screen = self.get_screen(target)
